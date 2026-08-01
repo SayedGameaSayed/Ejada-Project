@@ -1,0 +1,20 @@
+# Large SQL database binaries (re-restorable via SQL\01_Restore_OLTP.sql)
+Data/
+Data/*.mdf
+Data/*.ldf
+
+# Visual Studio / SSDT artifacts
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Build output and logs
+Build/bin/
+*.dtexec
+*.log
+
+# OS files
+Thumbs.db
+Desktop.ini
