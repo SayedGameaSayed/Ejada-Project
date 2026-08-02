@@ -29,7 +29,7 @@
           <SSIS:Property SSIS:Name="FormatVersion">1</SSIS:Property>
         </SSIS:Properties>
         <SSIS:Packages>
-          <SSIS:Package SSIS:Name="DailyETL.dtsx" SSIS:EntryPoint="1" />
+          <SSIS:Package SSIS:Name="Load DW Pipeline.dtsx" SSIS:EntryPoint="1" />
         </SSIS:Packages>
         <SSIS:ConnectionManagers />
         <SSIS:DeploymentInfo>

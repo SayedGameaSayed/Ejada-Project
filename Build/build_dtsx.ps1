@@ -1,7 +1,8 @@
-﻿param([string]$InitialLoad = "True")
+﻿param([string]$InitialLoad = "True", [string]$CurrentJobTime = "")
 $ErrorActionPreference = "Stop"
 $initLoadVal = if ($InitialLoad -eq "False") { "False" } else { "True" }
-$out = "E:\Ejada Project\Claude_Auto_Project\AdventureWorks_OLAP\DailyETL.dtsx"
+$curJobVal = if ($CurrentJobTime) { $CurrentJobTime } else { "" }
+$out = "E:\Ejada Project\Claude_Auto_Project\AdventureWorks_OLAP\Load DW Pipeline.dtsx"
 
 function EscText($s) { ($s -replace '&','&amp;' -replace '<','&lt;' -replace '>','&gt;') }
 function EscAttr($s) { ($s -replace '&','&amp;' -replace '<','&lt;' -replace '>','&gt;' -replace '"','&quot;') }
@@ -59,7 +60,7 @@ Add ('  DTS:DTSID="' + (GUID 'Package') + '"' + "`r`n")
 Add ('  DTS:ExecutableType="Microsoft.Package"' + "`r`n")
 Add ('  DTS:LastModifiedProductVersion="13.0.4001.0"' + "`r`n")
 Add ('  DTS:LocaleID="1033"' + "`r`n")
-Add ('  DTS:ObjectName="DailyETL"' + "`r`n")
+Add ('  DTS:ObjectName="Load DW Pipeline"' + "`r`n")
 Add ('  DTS:PackageType="5"' + "`r`n")
 Add ('  DTS:ProtectionLevel="0"' + "`r`n")
 Add ('  DTS:VersionBuild="1"' + "`r`n")
@@ -73,6 +74,9 @@ Add ('      <DTS:Property DTS:DataType="11" DTS:Name="ParameterValue">' + $initL
 Add ('    </DTS:PackageParameter>' + "`r`n")
 Add ('    <DTS:PackageParameter DTS:CreationName="" DTS:DataType="8" DTS:DTSID="' + (GUID 'Param-Language') + '" DTS:ObjectName="Language">' + "`r`n")
 Add ('      <DTS:Property DTS:DataType="8" DTS:Name="ParameterValue">en</DTS:Property>' + "`r`n")
+Add ('    </DTS:PackageParameter>' + "`r`n")
+Add ('    <DTS:PackageParameter DTS:CreationName="" DTS:DataType="7" DTS:DTSID="' + (GUID 'Param-CurrentJobTime') + '" DTS:ObjectName="CurrentJobTime">' + "`r`n")
+Add ('      <DTS:Property DTS:DataType="7" DTS:Name="ParameterValue">' + $curJobVal + '</DTS:Property>' + "`r`n")
 Add ('    </DTS:PackageParameter>' + "`r`n")
 Add ('  </DTS:PackageParameters>' + "`r`n")
 
@@ -119,6 +123,7 @@ Add ('  </DTS:Variables>' + "`r`n")
 function VarId($n) { return (GUID ("Var-" + $n)).Trim('{}') }
 $pmLast = '"@LastJobTime:Input",{' + (VarId 'LastJobTime') + '};'
 $pmLang = '"@Language:Input",{' + (VarId 'Language') + '};'
+$pmCur = '"@CurrentJobTime:Input",{' + (VarId 'CurrentJobTime') + '};'
 
 # =====================================================================
 # EXECUTABLE WRAPPERS
@@ -435,8 +440,9 @@ OpenSeq 'Package\Initialize' 'Initialize' (GUID 'Seq-Initialize')
 OpenTask 'Package\Initialize\Set Current Job Time' 'Set Current Job Time' (GUID 'Task-SetCurrentJobTime') 'Microsoft.ExecuteSQLTask' 'Execute SQL Task' 'Execute SQL Task; Microsoft Corporation; SQL Server 2016; c 2015 Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1'
 Add ('            <SQLTask:SqlTaskData' + "`r`n")
 Add ('              SQLTask:Connection="' + (GUID 'CM-DW') + '"' + "`r`n")
-Add ('              SQLTask:SqlStatementSource="SELECT GETDATE() AS Now"' + "`r`n")
+Add ('              SQLTask:SqlStatementSource="SELECT ISNULL(?, GETDATE()) AS Now"' + "`r`n")
 Add ('              SQLTask:ResultType="ResultSetType_SingleRow" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask">' + "`r`n")
+Add ('              <SQLTask:ParameterBinding SQLTask:ParameterName="0" SQLTask:DtsVariableName="$Package::CurrentJobTime" SQLTask:ParameterDirection="Input" SQLTask:DataType="7" SQLTask:ParameterSize="16" />' + "`r`n")
 Add ('              <SQLTask:ResultBinding SQLTask:ResultName="Now" SQLTask:DtsVariableName="User::CurrentJobTime" />' + "`r`n")
 Add ('            </SQLTask:SqlTaskData>' + "`r`n")
 CloseTask
@@ -852,6 +858,7 @@ $derRef = $dfRef + '\Add Effective Start Date'
 $lkRef  = $dfRef + '\Lookup Current Product'
 $spRef  = $dfRef + '\Detect Product Changes'
 $cmdRef = $dfRef + '\Expire Current Version'
+$updRef = $dfRef + '\Update SellEndDate (All Variants)'
 $insChgRef = $dfRef + '\Insert New Product Version'
 $insNewRef = $dfRef + '\Insert New Product'
 
@@ -861,7 +868,7 @@ FROM [dbo].[Product] P
 LEFT JOIN [dbo].[ProductModel] PM ON P.ProductModelID = PM.ProductModelID
 LEFT JOIN [dbo].[ProductCategory] PC ON P.ProductCategoryID = PC.ProductCategoryID
 LEFT JOIN [dbo].[ProductCategory] PC2 ON PC.ParentProductCategoryID = PC2.ProductCategoryID
-LEFT JOIN [dbo].[ProductModel_Description] PMD ON P.ProductModelID = PMD.ProductModelID AND PMD.Culture = 'en'
+LEFT JOIN [dbo].[ProductModel_Description] PMD ON P.ProductModelID = PMD.ProductModelID AND PMD.Culture = ?
 LEFT JOIN [dbo].[ProductDescription] PD ON PMD.ProductDescriptionID = PD.ProductDescriptionID
 '@
 $prodCols = @(
@@ -882,7 +889,7 @@ $prodCols = @(
 )
 
 OpenDF $dfRef 'Load DimProduct' (GUID 'DF-DimProduct')
-OLEDBSource $srcRef 'OLE DB Source' $StaPre $prodQ $null $prodCols
+OLEDBSource $srcRef 'OLE DB Source' $StaPre $prodQ $pmLang $prodCols
 
 # Derived Column - EffectiveStartDate = CurrentJobTime
 AddDerivedColumn $derRef 'Add Effective Start Date' @() @(
@@ -891,17 +898,17 @@ AddDerivedColumn $derRef 'Add Effective Start Date' @() @(
 
 # Lookup - current version by ProductAltKey (EffectiveEndDate IS NULL)
 $prodRefCmd = @'
-SELECT ProductKey, ProductAltKey, ProductName AS RefProductName, Price AS RefPrice, Cost AS RefCost, Category AS RefCategory, SubCategory AS RefSubCategory, Color AS RefColor, Size AS RefSize
+SELECT ProductKey, ProductAltKey, ProductName AS RefProductName, Price AS RefPrice, Cost AS RefCost, Category AS RefCategory, SubCategory AS RefSubCategory, Color AS RefColor, Size AS RefSize, SellEndDate AS RefSellEndDate
 FROM Sales.DimProduct
 WHERE EffectiveEndDate IS NULL
 '@
 $prodRefCmdParam = @'
-select * from (SELECT ProductKey, ProductAltKey, ProductName AS RefProductName, Price AS RefPrice, Cost AS RefCost, Category AS RefCategory, SubCategory AS RefSubCategory, Color AS RefColor, Size AS RefSize
+select * from (SELECT ProductKey, ProductAltKey, ProductName AS RefProductName, Price AS RefPrice, Cost AS RefCost, Category AS RefCategory, SubCategory AS RefSubCategory, Color AS RefColor, Size AS RefSize, SellEndDate AS RefSellEndDate
 FROM Sales.DimProduct
 WHERE EffectiveEndDate IS NULL) [refTable]
 where [refTable].[ProductAltKey] = ?
 '@
-$prodRefMeta = '<referenceMetadata><referenceColumns><referenceColumn name="ProductKey" dataType="DT_I4" precision="10" scale="0" codePage="0"/><referenceColumn name="ProductAltKey" dataType="DT_I4" precision="10" scale="0" codePage="0"/><referenceColumn name="RefProductName" dataType="DT_WSTR" length="400" precision="0" scale="0" codePage="0"/><referenceColumn name="RefPrice" dataType="DT_NUMERIC" precision="19" scale="4" codePage="0"/><referenceColumn name="RefCost" dataType="DT_NUMERIC" precision="19" scale="4" codePage="0"/><referenceColumn name="RefCategory" dataType="DT_WSTR" length="400" precision="0" scale="0" codePage="0"/><referenceColumn name="RefSubCategory" dataType="DT_WSTR" length="400" precision="0" scale="0" codePage="0"/><referenceColumn name="RefColor" dataType="DT_WSTR" length="400" precision="0" scale="0" codePage="0"/><referenceColumn name="RefSize" dataType="DT_WSTR" length="400" precision="0" scale="0" codePage="0"/></referenceColumns></referenceMetadata>'
+$prodRefMeta = '<referenceMetadata><referenceColumns><referenceColumn name="ProductKey" dataType="DT_I4" precision="10" scale="0" codePage="0"/><referenceColumn name="ProductAltKey" dataType="DT_I4" precision="10" scale="0" codePage="0"/><referenceColumn name="RefProductName" dataType="DT_WSTR" length="400" precision="0" scale="0" codePage="0"/><referenceColumn name="RefPrice" dataType="DT_NUMERIC" precision="19" scale="4" codePage="0"/><referenceColumn name="RefCost" dataType="DT_NUMERIC" precision="19" scale="4" codePage="0"/><referenceColumn name="RefCategory" dataType="DT_WSTR" length="400" precision="0" scale="0" codePage="0"/><referenceColumn name="RefSubCategory" dataType="DT_WSTR" length="400" precision="0" scale="0" codePage="0"/><referenceColumn name="RefColor" dataType="DT_WSTR" length="400" precision="0" scale="0" codePage="0"/><referenceColumn name="RefSize" dataType="DT_WSTR" length="400" precision="0" scale="0" codePage="0"/><referenceColumn name="RefSellEndDate" dataType="DT_DBTIMESTAMP" precision="0" scale="0" codePage="0"/></referenceColumns></referenceMetadata>'
 AddLookup $lkRef 'Lookup Current Product' $DWPRe $prodRefCmd $prodRefCmdParam $prodRefMeta ($srcRef + '.Outputs[OLE DB Source Output].Columns[ProductID]') @(
     @{name='ProductID'; dt='i4'; len=''; lineage=($srcRef+'.Outputs[OLE DB Source Output].Columns[ProductID]'); joinTo='ProductAltKey'}
 ) @(
@@ -912,13 +919,16 @@ AddLookup $lkRef 'Lookup Current Product' $DWPRe $prodRefCmd $prodRefCmdParam $p
     @{name='RefCategory';     dataType='wstr';   extra='length="400"'; copyFrom='RefCategory'},
     @{name='RefSubCategory';  dataType='wstr';   extra='length="400"'; copyFrom='RefSubCategory'},
     @{name='RefColor';        dataType='wstr';   extra='length="400"'; copyFrom='RefColor'},
-    @{name='RefSize';         dataType='wstr';   extra='length="400"'; copyFrom='RefSize'}
+    @{name='RefSize';         dataType='wstr';   extra='length="400"'; copyFrom='RefSize'},
+    @{name='RefSellEndDate';  dataType='dbTimeStamp'; extra='';        copyFrom='RefSellEndDate'}
 )
 
 # Conditional Split - Detect Product Changes
 $spInRef = $spRef + '.Inputs[Conditional Split Input]'
 $spExpr = '(ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefProductName]}) ? "" : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefProductName]}) != (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[ProductName]}) ? "" : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[ProductName]}) || (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefPrice]}) ? 0 : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefPrice]}) != (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Price]}) ? 0 : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Price]}) || (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefCost]}) ? 0 : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefCost]}) != (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Cost]}) ? 0 : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Cost]}) || (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefCategory]}) ? "" : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefCategory]}) != (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Category]}) ? "" : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Category]}) || (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefSubCategory]}) ? "" : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefSubCategory]}) != (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[SubCategory]}) ? "" : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[SubCategory]}) || (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefColor]}) ? "" : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefColor]}) != (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Color]}) ? "" : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Color]}) || (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefSize]}) ? "" : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefSize]}) != (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Size]}) ? "" : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Size]})'
 $spFriendly = '(ISNULL(RefProductName) ? "" : RefProductName) != (ISNULL(ProductName) ? "" : ProductName) || (ISNULL(RefPrice) ? 0 : RefPrice) != (ISNULL(Price) ? 0 : Price) || (ISNULL(RefCost) ? 0 : RefCost) != (ISNULL(Cost) ? 0 : Cost) || (ISNULL(RefCategory) ? "" : RefCategory) != (ISNULL(Category) ? "" : Category) || (ISNULL(RefSubCategory) ? "" : RefSubCategory) != (ISNULL(SubCategory) ? "" : SubCategory) || (ISNULL(RefColor) ? "" : RefColor) != (ISNULL(Color) ? "" : Color) || (ISNULL(RefSize) ? "" : RefSize) != (ISNULL(Size) ? "" : Size)'
+$spSellFriendly = '(ISNULL(RefProductName) ? "" : RefProductName) == (ISNULL(ProductName) ? "" : ProductName) && (ISNULL(RefPrice) ? 0 : RefPrice) == (ISNULL(Price) ? 0 : Price) && (ISNULL(RefCost) ? 0 : RefCost) == (ISNULL(Cost) ? 0 : Cost) && (ISNULL(RefCategory) ? "" : RefCategory) == (ISNULL(Category) ? "" : Category) && (ISNULL(RefSubCategory) ? "" : RefSubCategory) == (ISNULL(SubCategory) ? "" : SubCategory) && (ISNULL(RefColor) ? "" : RefColor) == (ISNULL(Color) ? "" : Color) && (ISNULL(RefSize) ? "" : RefSize) == (ISNULL(Size) ? "" : Size) && (ISNULL(RefSellEndDate) ? (DT_DBTIMESTAMP)"1900-01-01" : RefSellEndDate) != (ISNULL(SellEndDate) ? (DT_DBTIMESTAMP)"1900-01-01" : SellEndDate)'
+$spSellExpr = '(ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefProductName]}) ? "" : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefProductName]}) == (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[ProductName]}) ? "" : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[ProductName]}) && (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefPrice]}) ? 0 : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefPrice]}) == (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Price]}) ? 0 : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Price]}) && (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefCost]}) ? 0 : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefCost]}) == (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Cost]}) ? 0 : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Cost]}) && (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefCategory]}) ? "" : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefCategory]}) == (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Category]}) ? "" : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Category]}) && (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefSubCategory]}) ? "" : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefSubCategory]}) == (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[SubCategory]}) ? "" : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[SubCategory]}) && (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefColor]}) ? "" : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefColor]}) == (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Color]}) ? "" : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Color]}) && (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefSize]}) ? "" : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefSize]}) == (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Size]}) ? "" : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[Size]}) && (ISNULL(#{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefSellEndDate]}) ? (DT_DBTIMESTAMP)"1900-01-01" : #{' + $lkRef + '.Outputs[Lookup Match Output].Columns[RefSellEndDate]}) != (ISNULL(#{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[SellEndDate]}) ? (DT_DBTIMESTAMP)"1900-01-01" : #{' + $srcRef + '.Outputs[OLE DB Source Output].Columns[SellEndDate]})'
 Add ('          <component refId="' + $spRef + '" componentClassID="Microsoft.ConditionalSplit" contactInfo="Conditional Split;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;0" description="Routes data rows to different outputs depending on the content of the data." name="Detect Product Changes" usesDispositions="true">' + "`r`n")
 Add ('            <inputs>' + "`r`n")
 Add ('              <input refId="' + $spInRef + '" description="Input to the Conditional Split Transformation" name="Conditional Split Input">' + "`r`n")
@@ -937,7 +947,9 @@ $spInputCols = @(
     @{n='RefCategory';  t='wstr';  len='400'; l=$lkRef+'.Outputs[Lookup Match Output].Columns[RefCategory]'},
     @{n='RefSubCategory'; t='wstr'; len='400'; l=$lkRef+'.Outputs[Lookup Match Output].Columns[RefSubCategory]'},
     @{n='RefColor';     t='wstr';  len='400'; l=$lkRef+'.Outputs[Lookup Match Output].Columns[RefColor]'},
-    @{n='RefSize';      t='wstr';  len='400'; l=$lkRef+'.Outputs[Lookup Match Output].Columns[RefSize]'}
+    @{n='RefSize';      t='wstr';  len='400'; l=$lkRef+'.Outputs[Lookup Match Output].Columns[RefSize]'},
+    @{n='SellEndDate';  t='dbTimeStamp'; len=''; l=$srcRef+'.Outputs[OLE DB Source Output].Columns[SellEndDate]'},
+    @{n='RefSellEndDate'; t='dbTimeStamp'; len=''; l=$lkRef+'.Outputs[Lookup Match Output].Columns[RefSellEndDate]'}
 )
 foreach ($ic in $spInputCols) {
     $cachedL = if ($ic.len) { 'cachedLength="' + $ic.len + '" ' } else { '' }
@@ -953,6 +965,14 @@ Add ('                <properties>' + "`r`n")
 Add ('                  <property containsID="true" dataType="System.String" description="Specifies the expression. This expression version uses lineage identifiers instead of column names." name="Expression">' + (EscText $spExpr) + '</property>' + "`r`n")
 Add ('                  <property containsID="true" dataType="System.String" description="Specifies the friendly version of the expression. This expression version uses column names." expressionType="Notify" name="FriendlyExpression">' + (EscText $spFriendly) + '</property>' + "`r`n")
 Add ('                  <property dataType="System.Int32" description="Specifies the position of the condition in the list of conditions that the transformation evaluates. The evaluation order is from the lowest to the highest value." name="EvaluationOrder">0</property>' + "`r`n")
+Add ('                </properties>' + "`r`n")
+Add ('                <externalMetadataColumns />' + "`r`n")
+Add ('              </output>' + "`r`n")
+Add ('              <output refId="' + $spRef + '.Outputs[SellEndDateChanged]" description="Output 2 of the Conditional Split Transformation" errorOrTruncationOperation="Computation" errorRowDisposition="FailComponent" exclusionGroup="1" name="SellEndDateChanged" synchronousInputId="' + $spInRef + '" truncationRowDisposition="FailComponent">' + "`r`n")
+Add ('                <properties>' + "`r`n")
+Add ('                  <property containsID="true" dataType="System.String" description="Specifies the expression. This expression version uses lineage identifiers instead of column names." name="Expression">' + (EscText $spSellExpr) + '</property>' + "`r`n")
+Add ('                  <property containsID="true" dataType="System.String" description="Specifies the friendly version of the expression. This expression version uses column names." expressionType="Notify" name="FriendlyExpression">' + (EscText $spSellFriendly) + '</property>' + "`r`n")
+Add ('                  <property dataType="System.Int32" description="Specifies the position of the condition in the list of conditions that the transformation evaluates. The evaluation order is from the lowest to the highest value." name="EvaluationOrder">1</property>' + "`r`n")
 Add ('                </properties>' + "`r`n")
 Add ('                <externalMetadataColumns />' + "`r`n")
 Add ('              </output>' + "`r`n")
@@ -1028,6 +1048,62 @@ Add ('              </output>' + "`r`n")
 Add ('            </outputs>' + "`r`n")
 Add ('          </component>' + "`r`n")
 
+# OLE DB Command - Update SellEndDate on All Variants (overwrite, no new version)
+$updInRef = $updRef + '.Inputs[OLE DB Command Input]'
+Add ('          <component refId="' + $updRef + '" componentClassID="Microsoft.OLEDBCommand" contactInfo="OLE DB Command;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;2" description="Runs an SQL statement for each row in a data flow." name="Update SellEndDate (All Variants)" usesDispositions="true" version="2">' + "`r`n")
+Add ('            <properties>' + "`r`n")
+Add ('              <property dataType="System.Int32" description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out." name="CommandTimeout">0</property>' + "`r`n")
+Add ('              <property dataType="System.String" description="The SQL command to be executed." expressionType="Notify" name="SqlCommand" UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">UPDATE Sales.DimProduct' + "`r`n")
+Add ('SET SellEndDate=?' + "`r`n")
+Add ('WHERE  ProductAltKey=?</property>' + "`r`n")
+Add ('              <property dataType="System.Int32" description="Specifies the column code page to use when code page information is unavailable from the data source." name="DefaultCodePage">1252</property>' + "`r`n")
+Add ('            </properties>' + "`r`n")
+Add ('            <connections>' + "`r`n")
+Add ('              <connection refId="' + $updRef + '.Connections[OleDbConnection]" connectionManagerID="' + $DWPRe + '" connectionManagerRefId="' + $DWPRe + '" description="The OLE DB runtime connection used to access the database." name="OleDbConnection" />' + "`r`n")
+Add ('            </connections>' + "`r`n")
+Add ('            <inputs>' + "`r`n")
+Add ('              <input refId="' + $updInRef + '" errorOrTruncationOperation="Command Execution" errorRowDisposition="FailComponent" hasSideEffects="true" name="OLE DB Command Input">' + "`r`n")
+Add ('                <inputColumns>' + "`r`n")
+$updParams = @(
+    @{n='SellEndDate'; t='dbTimeStamp'; ext=''; scale=''; l=''; s=$srcRef+'.Outputs[OLE DB Source Output].Columns[SellEndDate]' },
+    @{n='ProductID';   t='i4';          ext=''; scale=''; l=''; s=$srcRef+'.Outputs[OLE DB Source Output].Columns[ProductID]' }
+)
+$i = 0
+foreach ($p in $updParams) {
+    $cachedL = if ($p.l) { 'cachedLength="' + $p.l + '" ' } else { '' }
+Add ('                  <inputColumn refId="' + $updInRef + '.Columns[' + $p.n + ']" cachedDataType="' + $p.t + '" ' + $cachedL + 'cachedName="' + $p.n + '" externalMetadataColumnId="' + $updInRef + '.ExternalColumns[Param_' + $i + ']" lineageId="' + $p.s + '" />' + "`r`n")
+    $i++
+}
+Add ('                </inputColumns>' + "`r`n")
+Add ('                <externalMetadataColumns isUsed="True">' + "`r`n")
+$i = 0
+foreach ($p in $updParams) {
+    $extT = if ($p.ext) { $p.ext } else { $p.t }
+    $scaleAttr = if ($p.scale) { ' scale="' + $p.scale + '"' } else { '' }
+Add ('                  <externalMetadataColumn refId="' + $updInRef + '.ExternalColumns[Param_' + $i + ']" dataType="' + $extT + '"' + $scaleAttr + ' name="Param_' + $i + '">' + "`r`n")
+Add ('                    <properties>' + "`r`n")
+Add ('                      <property dataType="System.Int32" description="Parameter information.  Matches OLE DB' + "'" + 's DBPARAMFLAGSENUM values." name="DBParamInfoFlags">65</property>' + "`r`n")
+Add ('                    </properties>' + "`r`n")
+Add ('                  </externalMetadataColumn>' + "`r`n")
+    $i++
+}
+Add ('                </externalMetadataColumns>' + "`r`n")
+Add ('              </input>' + "`r`n")
+Add ('            </inputs>' + "`r`n")
+Add ('            <outputs>' + "`r`n")
+Add ('              <output refId="' + $updRef + '.Outputs[OLE DB Command Output]" exclusionGroup="1" name="OLE DB Command Output" synchronousInputId="' + $updInRef + '">' + "`r`n")
+Add ('                <externalMetadataColumns />' + "`r`n")
+Add ('              </output>' + "`r`n")
+Add ('              <output refId="' + $updRef + '.Outputs[OLE DB Command Error Output]" exclusionGroup="1" isErrorOut="true" name="OLE DB Command Error Output" synchronousInputId="' + $updInRef + '">' + "`r`n")
+Add ('                <outputColumns>' + "`r`n")
+Add ('                  <outputColumn refId="' + $updRef + '.Outputs[OLE DB Command Error Output].Columns[ErrorCode]" dataType="i4" lineageId="' + $updRef + '.Outputs[OLE DB Command Error Output].Columns[ErrorCode]" name="ErrorCode" specialFlags="1" />' + "`r`n")
+Add ('                  <outputColumn refId="' + $updRef + '.Outputs[OLE DB Command Error Output].Columns[ErrorColumn]" dataType="i4" lineageId="' + $updRef + '.Outputs[OLE DB Command Error Output].Columns[ErrorColumn]" name="ErrorColumn" specialFlags="2" />' + "`r`n")
+Add ('                </outputColumns>' + "`r`n")
+Add ('                <externalMetadataColumns />' + "`r`n")
+Add ('              </output>' + "`r`n")
+Add ('            </outputs>' + "`r`n")
+Add ('          </component>' + "`r`n")
+
 # Destinations
 $prodInsCols = @()
 $prodInsCols += @{name='ProductKey';        dt='i4';        extra='';                       srcLineage=''}
@@ -1056,6 +1132,7 @@ CloseDF $dfRef @(
     (MkPath 'Lookup Match Output' ($lkRef + '.Outputs[Lookup Match Output]') ($spRef + '.Inputs[Conditional Split Input]')),
     (MkPath 'Changed' ($spRef + '.Outputs[Changed]') ($cmdRef + '.Inputs[OLE DB Command Input]')),
     (MkPath 'OLE DB Command Output' ($cmdRef + '.Outputs[OLE DB Command Output]') ($insChgRef + '.Inputs[OLE DB Destination Input]')),
+    (MkPath 'SellEndDateChanged' ($spRef + '.Outputs[SellEndDateChanged]') ($updRef + '.Inputs[OLE DB Command Input]')),
     (MkPath 'Lookup No Match Output' ($lkRef + '.Outputs[Lookup No Match Output]') ($insNewRef + '.Inputs[OLE DB Destination Input]'))
 )
 CloseSeq
@@ -1082,6 +1159,8 @@ $factQ = @'
 SELECT SOH.SalesOrderID, SOD.SalesOrderDetailID, SOH.CustomerID, SOD.ProductID, SOH.OrderDate, SOH.ShipDate, SOH.BatchYear, SOH.BatchMonth, SOH.SubTotal, SOH.TaxAmt, SOH.Freight, SOH.TotalDue, SOD.OrderQty, SOD.UnitPrice, SOD.UnitPriceDiscount, SOD.LineTotal
 FROM [dbo].[SalesOrderHeader] SOH
 INNER JOIN [dbo].[SalesOrderDetails] SOD ON SOH.SalesOrderID = SOD.OrderID
+WHERE SOH.OrderDate > ?
+  AND SOH.OrderDate <= ?
 '@
 $factCols = @(
     @{name='SalesOrderID';      dt='i4';      extra=''},
@@ -1103,7 +1182,7 @@ $factCols = @(
 )
 
 OpenDF $dfRef 'Load FactSales' (GUID 'DF-FactSales')
-OLEDBSource $srcRef 'OLE DB Source' $StaPre $factQ $null $factCols
+OLEDBSource $srcRef 'OLE DB Source' $StaPre $factQ ($pmLast + $pmCur) $factCols
 
 # Derived - ShipDateClean = ISNULL(ShipDate) ? OrderDate : ShipDate
 AddDerivedColumn $derRef 'Prepare Fact Columns' @(
