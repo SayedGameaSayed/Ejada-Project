@@ -103,10 +103,9 @@
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
               SQLTask:Connection="{1934CA95-6F47-A9E2-7BFD-05D0352DEEB8}"
-              SQLTask:SqlStatementSource="SELECT CASE WHEN ? &lt;= '1900-01-01 00:00:00' THEN GETDATE() ELSE ? END AS Now"
+              SQLTask:SqlStatementSource="SELECT ISNULL(?, GETDATE()) AS Now"
               SQLTask:ResultType="ResultSetType_SingleRow" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask">
               <SQLTask:ParameterBinding SQLTask:ParameterName="0" SQLTask:DtsVariableName="$Package::CurrentJobTime" SQLTask:ParameterDirection="Input" SQLTask:DataType="7" SQLTask:ParameterSize="16" />
-              <SQLTask:ParameterBinding SQLTask:ParameterName="1" SQLTask:DtsVariableName="$Package::CurrentJobTime" SQLTask:ParameterDirection="Input" SQLTask:DataType="7" SQLTask:ParameterSize="16" />
               <SQLTask:ResultBinding SQLTask:ResultName="Now" SQLTask:DtsVariableName="User::CurrentJobTime" />
             </SQLTask:SqlTaskData>
           </DTS:ObjectData>
@@ -307,13 +306,12 @@
               <property dataType="System.String" description="Specifies the name of the database object used to open a rowset." name="OpenRowset"></property>
               <property dataType="System.String" description="Specifies the variable that contains the name of the database object used to open a rowset." name="OpenRowsetVariable"></property>
               <property dataType="System.String" description="The SQL command to be executed." name="SqlCommand" UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT A.AddressID, A.AddressLine1 AS Address, A.City, A.StateProvince AS State, A.CountryRegion AS Region, A.CountryRegion AS Country
-FROM SalesLT.Address A
-WHERE A.ModifiedDate &gt; ?</property>
+FROM SalesLT.Address A</property>
               <property dataType="System.String" description="The variable that contains the SQL command to be executed." name="SqlCommandVariable"></property>
               <property dataType="System.Int32" description="Specifies the column code page to use when code page information is unavailable from the data source." name="DefaultCodePage">1252</property>
               <property dataType="System.Boolean" description="Forces the use of the DefaultCodePage property value when describing character data." name="AlwaysUseDefaultCodePage">false</property>
               <property dataType="System.Int32" description="Specifies the mode used to access the database." name="AccessMode" typeConverter="AccessMode">2</property>
-              <property dataType="System.String" description="The mappings between the parameters in the SQL command and variables." name="ParameterMapping">"@LastJobTime:Input",{01C39C22-D835-3BBC-9A62-A18DB7C9365A};</property>
+              <property dataType="System.String" description="The mappings between the parameters in the SQL command and variables." name="ParameterMapping"></property>
             </properties>
             <connections>
               <connection refId="Package\Load Staging\Stage Address\OLE DB Source.Connections[OleDbConnection]" connectionManagerID="Package.ConnectionManagers[OLTP]" connectionManagerRefId="Package.ConnectionManagers[OLTP]" description="The OLE DB runtime connection used to access the database." name="OleDbConnection" />
@@ -563,13 +561,12 @@ WHERE C.ModifiedDate &gt; ?</property>
               <property dataType="System.String" description="Specifies the name of the database object used to open a rowset." name="OpenRowset"></property>
               <property dataType="System.String" description="Specifies the variable that contains the name of the database object used to open a rowset." name="OpenRowsetVariable"></property>
               <property dataType="System.String" description="The SQL command to be executed." name="SqlCommand" UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT CA.CustomerID, CA.AddressID, CA.AddressType
-FROM SalesLT.CustomerAddress CA
-WHERE CA.ModifiedDate &gt; ?</property>
+FROM SalesLT.CustomerAddress CA</property>
               <property dataType="System.String" description="The variable that contains the SQL command to be executed." name="SqlCommandVariable"></property>
               <property dataType="System.Int32" description="Specifies the column code page to use when code page information is unavailable from the data source." name="DefaultCodePage">1252</property>
               <property dataType="System.Boolean" description="Forces the use of the DefaultCodePage property value when describing character data." name="AlwaysUseDefaultCodePage">false</property>
               <property dataType="System.Int32" description="Specifies the mode used to access the database." name="AccessMode" typeConverter="AccessMode">2</property>
-              <property dataType="System.String" description="The mappings between the parameters in the SQL command and variables." name="ParameterMapping">"@LastJobTime:Input",{01C39C22-D835-3BBC-9A62-A18DB7C9365A};</property>
+              <property dataType="System.String" description="The mappings between the parameters in the SQL command and variables." name="ParameterMapping"></property>
             </properties>
             <connections>
               <connection refId="Package\Load Staging\Stage Customer Address\OLE DB Source.Connections[OleDbConnection]" connectionManagerID="Package.ConnectionManagers[OLTP]" connectionManagerRefId="Package.ConnectionManagers[OLTP]" description="The OLE DB runtime connection used to access the database." name="OleDbConnection" />
@@ -819,13 +816,12 @@ WHERE P.ModifiedDate &gt; ?</property>
               <property dataType="System.String" description="Specifies the name of the database object used to open a rowset." name="OpenRowset"></property>
               <property dataType="System.String" description="Specifies the variable that contains the name of the database object used to open a rowset." name="OpenRowsetVariable"></property>
               <property dataType="System.String" description="The SQL command to be executed." name="SqlCommand" UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT PC.ProductCategoryID, PC.ParentProductCategoryID, PC.Name
-FROM SalesLT.ProductCategory PC
-WHERE PC.ModifiedDate &gt; ?</property>
+FROM SalesLT.ProductCategory PC</property>
               <property dataType="System.String" description="The variable that contains the SQL command to be executed." name="SqlCommandVariable"></property>
               <property dataType="System.Int32" description="Specifies the column code page to use when code page information is unavailable from the data source." name="DefaultCodePage">1252</property>
               <property dataType="System.Boolean" description="Forces the use of the DefaultCodePage property value when describing character data." name="AlwaysUseDefaultCodePage">false</property>
               <property dataType="System.Int32" description="Specifies the mode used to access the database." name="AccessMode" typeConverter="AccessMode">2</property>
-              <property dataType="System.String" description="The mappings between the parameters in the SQL command and variables." name="ParameterMapping">"@LastJobTime:Input",{01C39C22-D835-3BBC-9A62-A18DB7C9365A};</property>
+              <property dataType="System.String" description="The mappings between the parameters in the SQL command and variables." name="ParameterMapping"></property>
             </properties>
             <connections>
               <connection refId="Package\Load Staging\Stage Product Category\OLE DB Source.Connections[OleDbConnection]" connectionManagerID="Package.ConnectionManagers[OLTP]" connectionManagerRefId="Package.ConnectionManagers[OLTP]" description="The OLE DB runtime connection used to access the database." name="OleDbConnection" />
@@ -922,13 +918,12 @@ WHERE PC.ModifiedDate &gt; ?</property>
               <property dataType="System.String" description="Specifies the name of the database object used to open a rowset." name="OpenRowset"></property>
               <property dataType="System.String" description="Specifies the variable that contains the name of the database object used to open a rowset." name="OpenRowsetVariable"></property>
               <property dataType="System.String" description="The SQL command to be executed." name="SqlCommand" UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT PD.ProductDescriptionID, PD.Description
-FROM SalesLT.ProductDescription PD
-WHERE PD.ModifiedDate &gt; ?</property>
+FROM SalesLT.ProductDescription PD</property>
               <property dataType="System.String" description="The variable that contains the SQL command to be executed." name="SqlCommandVariable"></property>
               <property dataType="System.Int32" description="Specifies the column code page to use when code page information is unavailable from the data source." name="DefaultCodePage">1252</property>
               <property dataType="System.Boolean" description="Forces the use of the DefaultCodePage property value when describing character data." name="AlwaysUseDefaultCodePage">false</property>
               <property dataType="System.Int32" description="Specifies the mode used to access the database." name="AccessMode" typeConverter="AccessMode">2</property>
-              <property dataType="System.String" description="The mappings between the parameters in the SQL command and variables." name="ParameterMapping">"@LastJobTime:Input",{01C39C22-D835-3BBC-9A62-A18DB7C9365A};</property>
+              <property dataType="System.String" description="The mappings between the parameters in the SQL command and variables." name="ParameterMapping"></property>
             </properties>
             <connections>
               <connection refId="Package\Load Staging\Stage Product Description\OLE DB Source.Connections[OleDbConnection]" connectionManagerID="Package.ConnectionManagers[OLTP]" connectionManagerRefId="Package.ConnectionManagers[OLTP]" description="The OLE DB runtime connection used to access the database." name="OleDbConnection" />
@@ -1020,13 +1015,12 @@ WHERE PD.ModifiedDate &gt; ?</property>
               <property dataType="System.String" description="Specifies the name of the database object used to open a rowset." name="OpenRowset"></property>
               <property dataType="System.String" description="Specifies the variable that contains the name of the database object used to open a rowset." name="OpenRowsetVariable"></property>
               <property dataType="System.String" description="The SQL command to be executed." name="SqlCommand" UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT PM.ProductModelID, PM.Name
-FROM SalesLT.ProductModel PM
-WHERE PM.ModifiedDate &gt; ?</property>
+FROM SalesLT.ProductModel PM</property>
               <property dataType="System.String" description="The variable that contains the SQL command to be executed." name="SqlCommandVariable"></property>
               <property dataType="System.Int32" description="Specifies the column code page to use when code page information is unavailable from the data source." name="DefaultCodePage">1252</property>
               <property dataType="System.Boolean" description="Forces the use of the DefaultCodePage property value when describing character data." name="AlwaysUseDefaultCodePage">false</property>
               <property dataType="System.Int32" description="Specifies the mode used to access the database." name="AccessMode" typeConverter="AccessMode">2</property>
-              <property dataType="System.String" description="The mappings between the parameters in the SQL command and variables." name="ParameterMapping">"@LastJobTime:Input",{01C39C22-D835-3BBC-9A62-A18DB7C9365A};</property>
+              <property dataType="System.String" description="The mappings between the parameters in the SQL command and variables." name="ParameterMapping"></property>
             </properties>
             <connections>
               <connection refId="Package\Load Staging\Stage Product Model\OLE DB Source.Connections[OleDbConnection]" connectionManagerID="Package.ConnectionManagers[OLTP]" connectionManagerRefId="Package.ConnectionManagers[OLTP]" description="The OLE DB runtime connection used to access the database." name="OleDbConnection" />
@@ -1118,13 +1112,12 @@ WHERE PM.ModifiedDate &gt; ?</property>
               <property dataType="System.String" description="Specifies the name of the database object used to open a rowset." name="OpenRowset"></property>
               <property dataType="System.String" description="Specifies the variable that contains the name of the database object used to open a rowset." name="OpenRowsetVariable"></property>
               <property dataType="System.String" description="The SQL command to be executed." name="SqlCommand" UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT PMD.ProductModelID, PMD.ProductDescriptionID, PMD.Culture
-FROM SalesLT.ProductModelDescription PMD
-WHERE PMD.ModifiedDate &gt; ?</property>
+FROM SalesLT.ProductModelDescription PMD</property>
               <property dataType="System.String" description="The variable that contains the SQL command to be executed." name="SqlCommandVariable"></property>
               <property dataType="System.Int32" description="Specifies the column code page to use when code page information is unavailable from the data source." name="DefaultCodePage">1252</property>
               <property dataType="System.Boolean" description="Forces the use of the DefaultCodePage property value when describing character data." name="AlwaysUseDefaultCodePage">false</property>
               <property dataType="System.Int32" description="Specifies the mode used to access the database." name="AccessMode" typeConverter="AccessMode">2</property>
-              <property dataType="System.String" description="The mappings between the parameters in the SQL command and variables." name="ParameterMapping">"@LastJobTime:Input",{01C39C22-D835-3BBC-9A62-A18DB7C9365A};</property>
+              <property dataType="System.String" description="The mappings between the parameters in the SQL command and variables." name="ParameterMapping"></property>
             </properties>
             <connections>
               <connection refId="Package\Load Staging\Stage Product Model Description\OLE DB Source.Connections[OleDbConnection]" connectionManagerID="Package.ConnectionManagers[OLTP]" connectionManagerRefId="Package.ConnectionManagers[OLTP]" description="The OLE DB runtime connection used to access the database." name="OleDbConnection" />

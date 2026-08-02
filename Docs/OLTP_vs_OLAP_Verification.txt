@@ -1,0 +1,27 @@
+﻿Ejada Project'26 - OLTP vs OLAP Query Comparison - FINAL VERIFICATION
+======================================================================
+Date            : 08/02/2026 06:48:28
+SQL Server      : MSI (localhost)
+
+Pipeline:
+  Run I   (InitialLoad=True,  CurrentJobTime 2022-12-30) : clean V1 load    -> FactSales 277,880
+  V2 simulation applied (SQL\09_V2_Simulation.sql)        : +5,000 orders / +75,625 details / +5 products / +5 customers
+  Run II  (InitialLoad=False, CurrentJobTime 2026-12-30)  : incremental load -> FactSales 353,505
+
+Final DW state:
+  FactSales        = 353,505
+  FactSales_BadRows = 0
+  DimCustomer      = 412
+  DimProduct       = 302  (300 active, 2 expired SCD2 variants for 680/706)
+  Facts >= 2023    = 75,625 (all V2 orders loaded)
+  Watermark        = 2026-12-30 12:00:00
+
+OLTP vs OLAP comparison (company queries):
+  OLTP data rows : 842   (matches "rows affected")
+  OLAP data rows : 842
+  Row-order identical: True
+  Metric values compared per row (Year, Month, Country, Category, OrderCount,
+    TotalSales, GrossSales, AvgDiscountPerUnit, AvgDaysToShip, TaxRatio, FreightRatio)
+  MISMATCHES: 0
+
+Result: OLTP and OLAP queries produce IDENTICAL results (842 aggregation rows, all values match).

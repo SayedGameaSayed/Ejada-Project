@@ -529,10 +529,9 @@ Add ('            </SQLTask:SqlTaskData>' + "`r`n")
 CloseTask
 
 $staging = @(
-    @{ DF="Stage Address";                Table="[dbo].[Address]"; Query=@'
+    @{ DF="Stage Address";                Table="[dbo].[Address]"; Full=$true; Query=@'
 SELECT A.AddressID, A.AddressLine1 AS Address, A.City, A.StateProvince AS State, A.CountryRegion AS Region, A.CountryRegion AS Country
 FROM SalesLT.Address A
-WHERE A.ModifiedDate > ?
 '@; Cols=@(
         @("AddressID","i4"), @("Address","wstr","60"), @("City","wstr","30"), @("State","wstr","50"), @("Region","wstr","50"), @("Country","wstr","50")
     ) },
@@ -543,10 +542,9 @@ WHERE C.ModifiedDate > ?
 '@; Cols=@(
         @("CustomerID","i4"), @("Title","wstr","8"), @("FirstName","wstr","50"), @("MiddleName","wstr","50"), @("LastName","wstr","50"), @("Suffix","wstr","10"), @("CompanyName","wstr","128"), @("EmailAddress","wstr","50"), @("Phone","wstr","25"), @("ModifiedDate","dbTimeStamp")
     ) },
-    @{ DF="Stage Customer Address";       Table="[dbo].[Customer_Address]"; Query=@'
+    @{ DF="Stage Customer Address";       Table="[dbo].[Customer_Address]"; Full=$true; Query=@'
 SELECT CA.CustomerID, CA.AddressID, CA.AddressType
 FROM SalesLT.CustomerAddress CA
-WHERE CA.ModifiedDate > ?
 '@; Cols=@(
         @("CustomerID","i4"), @("AddressID","i4"), @("AddressType","wstr","50")
     ) },
@@ -557,31 +555,27 @@ WHERE P.ModifiedDate > ?
 '@; Cols=@(
         @("ProductID","i4"), @("Name","wstr","50"), @("ProductNumber","wstr","25"), @("Color","wstr","15"), @("StandardCost","numeric","19","4"), @("ListPrice","numeric","19","4"), @("Size","wstr","5"), @("Weight","numeric","8","2"), @("ProductCategoryID","i4"), @("ProductModelID","i4"), @("SellStartDate","dbTimeStamp"), @("SellEndDate","dbTimeStamp"), @("ModifiedDate","dbTimeStamp")
     ) },
-    @{ DF="Stage Product Category";       Table="[dbo].[ProductCategory]"; Query=@'
+    @{ DF="Stage Product Category";       Table="[dbo].[ProductCategory]"; Full=$true; Query=@'
 SELECT PC.ProductCategoryID, PC.ParentProductCategoryID, PC.Name
 FROM SalesLT.ProductCategory PC
-WHERE PC.ModifiedDate > ?
 '@; Cols=@(
         @("ProductCategoryID","i4"), @("ParentProductCategoryID","i4"), @("Name","wstr","50")
     ) },
-    @{ DF="Stage Product Description";    Table="[dbo].[ProductDescription]"; Query=@'
+    @{ DF="Stage Product Description";    Table="[dbo].[ProductDescription]"; Full=$true; Query=@'
 SELECT PD.ProductDescriptionID, PD.Description
 FROM SalesLT.ProductDescription PD
-WHERE PD.ModifiedDate > ?
 '@; Cols=@(
         @("ProductDescriptionID","i4"), @("Description","wstr","400")
     ) },
-    @{ DF="Stage Product Model";          Table="[dbo].[ProductModel]"; Query=@'
+    @{ DF="Stage Product Model";          Table="[dbo].[ProductModel]"; Full=$true; Query=@'
 SELECT PM.ProductModelID, PM.Name
 FROM SalesLT.ProductModel PM
-WHERE PM.ModifiedDate > ?
 '@; Cols=@(
         @("ProductModelID","i4"), @("Name","wstr","50")
     ) },
-    @{ DF="Stage Product Model Description"; Table="[dbo].[ProductModel_Description]"; Query=@'
+    @{ DF="Stage Product Model Description"; Table="[dbo].[ProductModel_Description]"; Full=$true; Query=@'
 SELECT PMD.ProductModelID, PMD.ProductDescriptionID, PMD.Culture
 FROM SalesLT.ProductModelDescription PMD
-WHERE PMD.ModifiedDate > ?
 '@; Cols=@(
         @("ProductModelID","i4"), @("ProductDescriptionID","i4"), @("Culture","wstr","6")
     ) },
@@ -615,7 +609,8 @@ foreach ($s in $staging) {
     foreach ($c in $cols) { $dstCols += @{ name=$c.name; dt=$c.dt; extra=$c.extra; srcLineage=($srcRef + '.Outputs[OLE DB Source Output].Columns[' + $c.name + ']') } }
 
     OpenDF $dfRef $s.DF (GUID ("DF-" + $s.DF))
-    OLEDBSource $srcRef 'OLE DB Source' $OLTPre $s.Query $pmLast $srcCols
+    $paramMap = if ($s.Full) { '' } else { $pmLast }
+    OLEDBSource $srcRef 'OLE DB Source' $OLTPre $s.Query $paramMap $srcCols
     OLEDBDest $dstRef 'OLE DB Destination' $StaPre $s.Table $dstCols
     CloseDF $dfRef @( MkPath 'OLE DB Source Output' ($srcRef + '.Outputs[OLE DB Source Output]') ($dstRef + '.Inputs[OLE DB Destination Input]') )
 }
@@ -863,7 +858,7 @@ $insChgRef = $dfRef + '\Insert New Product Version'
 $insNewRef = $dfRef + '\Insert New Product'
 
 $prodQ = @'
-SELECT P.ProductID, P.Name AS ProductName, P.ProductNumber, P.Color, P.Size, P.Weight, P.StandardCost AS Cost, P.ListPrice AS Price, P.SellStartDate, P.SellEndDate, PM.Name AS ProductModel, PC.Name AS Category, PC2.Name AS SubCategory, PD.Description
+SELECT P.ProductID, P.Name AS ProductName, P.ProductNumber, P.Color, P.Size, P.Weight, P.StandardCost AS Cost, P.ListPrice AS Price, P.SellStartDate, P.SellEndDate, PM.Name AS ProductModel, PC2.Name AS Category, PC.Name AS SubCategory, PD.Description
 FROM [dbo].[Product] P
 LEFT JOIN [dbo].[ProductModel] PM ON P.ProductModelID = PM.ProductModelID
 LEFT JOIN [dbo].[ProductCategory] PC ON P.ProductCategoryID = PC.ProductCategoryID
